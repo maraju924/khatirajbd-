@@ -1,0 +1,10 @@
+{
+  "name": "BazarHaat — বাংলাদেশি ই-কমার্স ও অ্যাডমিন প্ল্যাটফর্ম",
+  "short_name": "BazarHaat",
+  "description": "বাংলাদেশের জন্য আধুনিক দ্বিভাষিক (বাংলা ও ইংরেজি) মাল্টি-ক্যাটাগরি ই-কমার্স ওয়েবসাইট ও অ্যাডমিন ড্যাশবোর্ড।",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f4ef",
+  "theme_color": "#123b2e",
+  "lang": "bn"
+}

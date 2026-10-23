@@ -6,10 +6,10 @@
   --gold: #c7a15d;
   --cream: #f8f6f0;
   --ink: #202820;
-  --muted: #788078;
+  --muted: #4a554d;
   --line: #e9e8e1;
   --white: #fff;
-  --sale: #b9443c;
+  --sale: #9e2d25;
   --shadow: 0 5px 20px #173d2d0c;
   --font-display: 'Hind Siliguri', 'Inter', sans-serif;
   --font-sans: 'Hind Siliguri', 'Inter', sans-serif;
@@ -124,7 +124,7 @@ body {
 }
 
 .sb-search input::placeholder {
-  color: #778078;
+  color: #4f5951;
 }
 
 .sb-search-clear {
@@ -215,6 +215,7 @@ body {
   background: #e9dfc9;
   box-shadow: var(--shadow);
   isolation: isolate;
+  contain: layout paint;
 }
 
 .sb-hero::before {
@@ -285,7 +286,7 @@ body {
 
 .sb-old {
   font: 500 11px Inter, sans-serif;
-  color: #7d8077;
+  color: #4d544e;
   text-decoration: line-through;
 }
 
@@ -315,8 +316,8 @@ body {
   display: grid;
   place-content: center;
   text-align: center;
-  background: #c7a15d;
-  color: #fff;
+  background: #f2d594;
+  color: #123b2e;
   font: 800 13px/1.05 Inter, sans-serif;
   box-shadow: 0 5px 18px #77562222;
 }
@@ -336,19 +337,22 @@ body {
   gap: 5px;
 }
 
-.sb-dots i {
-  width: 5px;
-  height: 5px;
-  border: 1px solid #fff;
+.sb-dots i,
+.sb-dots button {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 1px solid #123b2e;
   border-radius: 10px;
-  background: #ffffff80;
+  background: #123b2e66;
   cursor: pointer;
   transition: width 0.2s ease;
 }
 
-.sb-dots i.active {
-  width: 17px;
-  background: #fff;
+.sb-dots i.active,
+.sb-dots button.active {
+  width: 18px;
+  background: #123b2e;
 }
 
 .sb-categories {
@@ -428,7 +432,7 @@ body {
 
 .sb-cat small {
   font-size: 9px;
-  color: #68746b;
+  color: #48544b;
   line-height: 1.1;
 }
 
@@ -442,6 +446,7 @@ body {
   color: #fff;
   padding: 17px 17px;
   isolation: isolate;
+  contain: layout paint;
 }
 
 .sb-deal::after {
@@ -541,7 +546,7 @@ body {
 
 .sb-section-en {
   font: 500 10px Inter, sans-serif;
-  color: #7d847c;
+  color: #4a544b;
   border-left: 1px solid #d8d9d1;
   padding-left: 7px;
   white-space: nowrap;
@@ -597,6 +602,7 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
+  contain: layout paint;
 }
 
 .sb-product-image {
@@ -653,8 +659,8 @@ body {
   left: 6px;
   bottom: 6px;
   border-radius: 15px;
-  background: #c59b50;
-  color: #fff;
+  background: #123b2e;
+  color: #f7e6be;
   font: 700 9px Inter, sans-serif;
   padding: 4px 7px;
 }
@@ -664,7 +670,7 @@ body {
   line-height: 1.35;
   margin: 8px 0 5px;
   min-height: 29px;
-  color: #303a32;
+  color: #202820;
   font-weight: 600;
   cursor: pointer;
   display: -webkit-box;
@@ -687,17 +693,17 @@ body {
 
 .sb-product-price del {
   font: 400 9px Inter, sans-serif;
-  color: #9b9d96;
+  color: #545b54;
 }
 
 .sb-rating {
   font: 10px Inter, sans-serif;
-  color: #7d817a;
+  color: #4a524b;
   margin-top: 5px;
 }
 
 .sb-star {
-  color: #d7a443;
+  color: #9e6b08;
 }
 
 .sb-add {
@@ -941,7 +947,7 @@ body {
   flex-direction: column;
   gap: 3px;
   text-decoration: none;
-  color: #8b918b;
+  color: #4a524a;
   font-size: 10px;
   line-height: 1.2;
   background: transparent;
@@ -1246,7 +1252,7 @@ body {
 .adm-text-link {
   border: 0;
   background: transparent;
-  color: #688071;
+  color: #3f5748;
   font-size: 11px;
   cursor: pointer;
 }
@@ -1337,7 +1343,7 @@ body {
 .adm-stat label {
   display: block;
   font-size: 11px;
-  color: #7d867d;
+  color: #4a544a;
   margin-top: 11px;
 }
 
@@ -1351,7 +1357,7 @@ body {
 
 .adm-stat small {
   font-size: 10px;
-  color: #879087;
+  color: #4e584e;
   display: block;
   margin-top: 5px;
 }
@@ -1381,7 +1387,7 @@ body {
   display: flex;
   justify-content: space-between;
   font: 9px Inter, sans-serif;
-  color: #9aa098;
+  color: #4e574d;
   margin-top: 2px;
 }
 
@@ -1491,7 +1497,7 @@ body {
 
 .adm-order-info small {
   font: 10px Inter, sans-serif;
-  color: #8a9189;
+  color: #4e574e;
   display: block;
   margin-top: 3px;
 }
@@ -1566,7 +1572,7 @@ body {
 
 .adm-product small {
   font: 10px Inter, sans-serif;
-  color: #8a9189;
+  color: #4e574e;
   display: block;
   margin-top: 4px;
 }
@@ -1597,7 +1603,7 @@ body {
 .adm-nav-item {
   border: 0;
   background: transparent;
-  color: #929991;
+  color: #4a524a;
   display: flex;
   align-items: center;
   flex-direction: column;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db, isWhitelistedAdminEmail } from './firebase';
@@ -16,31 +16,78 @@ import {
   SliderItem,
   UserProfile,
 } from './types';
-import { DEFAULT_SITE_SETTINGS } from './data/seedCatalog';
-import { CartDrawer } from './components/CartDrawer';
-import { ProductDetailModal } from './components/ProductDetailModal';
-import { OrderTrackingSection } from './components/OrderTrackingSection';
-import { AdminDashboard } from './components/AdminDashboard';
-import { CategoryPageView } from './components/CategoryPageView';
-import { UserAccountModal } from './components/UserAccountModal';
+import { DEFAULT_SITE_SETTINGS } from './data/defaultSiteSettings';
 import { generateSeoSlug, syncDocumentSeoHead } from './utils/yoastSeoEngine';
+import { optimizeImageUrl } from './utils/imageOptimizer';
+
+// Code-split heavy views & modals so the initial mobile bundle stays ultra-light
+const CartDrawer = lazy(() =>
+  import('./components/CartDrawer').then((m) => ({ default: m.CartDrawer }))
+);
+const ProductDetailModal = lazy(() =>
+  import('./components/ProductDetailModal').then((m) => ({ default: m.ProductDetailModal }))
+);
+const OrderTrackingSection = lazy(() =>
+  import('./components/OrderTrackingSection').then((m) => ({ default: m.OrderTrackingSection }))
+);
+const AdminDashboard = lazy(() =>
+  import('./components/AdminDashboard').then((m) => ({ default: m.AdminDashboard }))
+);
+const CategoryPageView = lazy(() =>
+  import('./components/CategoryPageView').then((m) => ({ default: m.CategoryPageView }))
+);
+const UserAccountModal = lazy(() =>
+  import('./components/UserAccountModal').then((m) => ({ default: m.UserAccountModal }))
+);
 
 const CART_STORAGE_KEY = 'khatiraj_cart_v21';
 const RECENT_ORDERS_STORAGE_KEY = 'khatiraj_recent_orders_v21';
 const WISHLIST_STORAGE_KEY = 'shopbangla_wishlist_v1';
+const PRODUCTS_CACHE_KEY = 'khatiraj_cached_products_v1';
+const SLIDERS_CACHE_KEY = 'khatiraj_cached_sliders_v1';
+const SETTINGS_CACHE_KEY = 'khatiraj_cached_settings_v1';
 
 export function App() {
   const [lang, setLang] = useState<Language>('bn');
 
-  // 100% Dynamic Firestore-backed states (Zero static/dummy fallback arrays)
-  const [products, setProducts] = useState<Product[]>([]);
+  // 100% Dynamic Firestore-backed states with instant localStorage cache hydration for 0ms LCP
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem(PRODUCTS_CACHE_KEY);
+      return cached ? (JSON.parse(cached) as Product[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [sliders, setSliders] = useState<SliderItem[]>([]);
+  const [sliders, setSliders] = useState<SliderItem[]>(() => {
+    try {
+      const cached = localStorage.getItem(SLIDERS_CACHE_KEY);
+      return cached ? (JSON.parse(cached) as SliderItem[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [landingPages, setLandingPages] = useState<LandingPageItem[]>([]);
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
-  const [siteSettings, setSiteSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
+    try {
+      const cached = localStorage.getItem(SETTINGS_CACHE_KEY);
+      return cached
+        ? { ...DEFAULT_SITE_SETTINGS, ...(JSON.parse(cached) as Partial<SiteSettings>) }
+        : DEFAULT_SITE_SETTINGS;
+    } catch {
+      return DEFAULT_SITE_SETTINGS;
+    }
+  });
+  const [isLoadingProducts, setIsLoadingProducts] = useState(() => {
+    try {
+      return !localStorage.getItem(PRODUCTS_CACHE_KEY);
+    } catch {
+      return true;
+    }
+  });
 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -197,9 +244,8 @@ export function App() {
     };
   }, []);
 
-  // 100% Live Firestore real-time listeners (No dummy data fallback)
+  // 100% Live Firestore real-time listeners with cache persistence
   useEffect(() => {
-    setIsLoadingProducts(true);
     const unsubProducts = onSnapshot(
       collection(db, 'products'),
       (snap) => {
@@ -209,9 +255,13 @@ export function App() {
         }));
         setProducts(loaded);
         setIsLoadingProducts(false);
+        try {
+          localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(loaded.slice(0, 24)));
+        } catch {
+          // ignore storage quota errors
+        }
       },
       () => {
-        setProducts([]);
         setIsLoadingProducts(false);
       }
     );
@@ -235,13 +285,17 @@ export function App() {
           id: d.id,
           ...(d.data() as Omit<SliderItem, 'id'>),
         }));
-        setSliders(
-          loaded
-            .filter((s) => s.isActive !== false)
-            .sort((a, b) => (a.sortOrder || 1) - (b.sortOrder || 1))
-        );
+        const activeSliders = loaded
+          .filter((s) => s.isActive !== false)
+          .sort((a, b) => (a.sortOrder || 1) - (b.sortOrder || 1));
+        setSliders(activeSliders);
+        try {
+          localStorage.setItem(SLIDERS_CACHE_KEY, JSON.stringify(activeSliders.slice(0, 6)));
+        } catch {
+          // ignore storage quota errors
+        }
       },
-      () => setSliders([])
+      () => {}
     );
 
     const unsubBlogs = onSnapshot(
@@ -284,10 +338,16 @@ export function App() {
       doc(db, 'siteSettings', 'global'),
       (snap) => {
         if (snap.exists()) {
-          setSiteSettings({
+          const merged = {
             ...DEFAULT_SITE_SETTINGS,
             ...(snap.data() as Partial<SiteSettings>),
-          });
+          };
+          setSiteSettings(merged);
+          try {
+            localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged));
+          } catch {
+            // ignore storage errors
+          }
         }
       },
       () => {}
@@ -621,32 +681,55 @@ export function App() {
   };
 
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
+  // Instant zero-CLS Hero fallback so LCP h1 paints immediately at frame 1 even before Firestore responds
   const currentHero =
-    dynamicHeroSlides[activeSlideIdx % Math.max(1, dynamicHeroSlides.length)] || null;
+    dynamicHeroSlides[activeSlideIdx % Math.max(1, dynamicHeroSlides.length)] || {
+      id: 'instant-shell-hero',
+      eyebrow: 'PREMIUM ORGANIC',
+      titleBn: siteSettings.siteName || 'খাঁটিরাজ বিডি',
+      titleEn: siteSettings.siteName || 'Khati Raj BD',
+      descBn:
+        siteSettings.siteTagline ||
+        '১০০% খাঁটি ও অর্গানিক পণ্যের বিশ্বস্ত প্রতিষ্ঠান',
+      descEn:
+        siteSettings.siteTagline ||
+        '100% Pure & Organic Products across Bangladesh',
+      priceLineBn: 'সারা বাংলাদেশে হোম ডেলিভারি',
+      priceLineEn: 'Nationwide Home Delivery',
+      imageUrl: '',
+    };
 
   if (isAdminOpen && isAdmin) {
     return (
-      <AdminDashboard
-        isOpen={true}
-        onClose={() => {
-          setIsAdminOpen(false);
-          setActiveNavTab('home');
-        }}
-        user={user}
-        isAdmin={isAdmin}
-        products={products}
-        coupons={coupons}
-        sliders={sliders}
-        blogPosts={blogPosts}
-        landingPages={landingPages}
-        reviews={reviews}
-        siteSettings={siteSettings}
-        lang={lang}
-        onPreviewLandingPage={(lp) => {
-          setActiveLandingPage(lp);
-          setIsAdminOpen(false);
-        }}
-      />
+      <Suspense
+        fallback={
+          <div style={{ padding: 40, textAlign: 'center', fontSize: 13, color: '#123b2e' }}>
+            অ্যাডমিন প্যানেল লোড হচ্ছে...
+          </div>
+        }
+      >
+        <AdminDashboard
+          isOpen={true}
+          onClose={() => {
+            setIsAdminOpen(false);
+            setActiveNavTab('home');
+          }}
+          user={user}
+          isAdmin={isAdmin}
+          products={products}
+          coupons={coupons}
+          sliders={sliders}
+          blogPosts={blogPosts}
+          landingPages={landingPages}
+          reviews={reviews}
+          siteSettings={siteSettings}
+          lang={lang}
+          onPreviewLandingPage={(lp) => {
+            setActiveLandingPage(lp);
+            setIsAdminOpen(false);
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -697,8 +780,11 @@ export function App() {
             >
               {siteSettings.logoUrl ? (
                 <img
-                  src={siteSettings.logoUrl}
+                  src={optimizeImageUrl(siteSettings.logoUrl, 80, 80)}
                   alt={siteSettings.siteName}
+                  width={34}
+                  height={34}
+                  decoding="async"
                 />
               ) : (
                 <span>
@@ -714,7 +800,8 @@ export function App() {
                 <path d="m16.5 16.5 4 4" />
               </svg>
               <input
-                type="text"
+                type="search"
+                aria-label={lang === 'bn' ? 'পণ্য খুঁজুন' : 'Search products'}
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -743,6 +830,7 @@ export function App() {
               <button
                 type="button"
                 className="sb-lang"
+                aria-label={lang === 'bn' ? 'Switch language to English' : 'ভাষা বাংলায় পরিবর্তন করুন'}
                 onClick={() => setLang((l) => (l === 'bn' ? 'en' : 'bn'))}
               >
                 {lang === 'bn' ? (
@@ -764,7 +852,7 @@ export function App() {
                   setShowAllPopular(true);
                 }}
               >
-                <svg viewBox="0 0 24 24">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
                 </svg>
                 {coupons.length > 0 && <i className="sb-dot" />}
@@ -776,29 +864,37 @@ export function App() {
         {/* MAIN (.main) */}
         <main className="sb-main">
           {activeNavTab === 'categories' ? (
-            <CategoryPageView
-              products={products}
-              reviews={reviews}
-              wishlist={wishlist}
-              selectedCategory={selectedCategory}
-              searchQuery={searchQuery}
-              lang={lang}
-              isLoadingProducts={isLoadingProducts}
-              onSelectCategory={(cat) => setSelectedCategory(cat)}
-              onSearchChange={(q) => setSearchQuery(q)}
-              onToggleWishlist={toggleWishlist}
-              onSelectProduct={(prod) => setActiveProductModal(prod)}
-              onAddToCart={(prod, qty = 1, variant, variantMeta) =>
-                handleAddToCart(prod, qty, variant, false, variantMeta)
+            <Suspense
+              fallback={
+                <div style={{ minHeight: '70vh', padding: 24, textAlign: 'center', fontSize: 12, color: '#4a554d' }}>
+                  ক্যাটাগরি লোড হচ্ছে...
+                </div>
               }
-              onDirectOrder={(prod, qty = 1, variant, variantMeta) =>
-                handleDirectOrder(prod, qty, variant, variantMeta)
-              }
-              onBackToHome={() => {
-                setActiveNavTab('home');
-                setSelectedCategory('all');
-              }}
-            />
+            >
+              <CategoryPageView
+                products={products}
+                reviews={reviews}
+                wishlist={wishlist}
+                selectedCategory={selectedCategory}
+                searchQuery={searchQuery}
+                lang={lang}
+                isLoadingProducts={isLoadingProducts}
+                onSelectCategory={(cat) => setSelectedCategory(cat)}
+                onSearchChange={(q) => setSearchQuery(q)}
+                onToggleWishlist={toggleWishlist}
+                onSelectProduct={(prod) => setActiveProductModal(prod)}
+                onAddToCart={(prod, qty = 1, variant, variantMeta) =>
+                  handleAddToCart(prod, qty, variant, false, variantMeta)
+                }
+                onDirectOrder={(prod, qty = 1, variant, variantMeta) =>
+                  handleDirectOrder(prod, qty, variant, variantMeta)
+                }
+                onBackToHome={() => {
+                  setActiveNavTab('home');
+                  setSelectedCategory('all');
+                }}
+              />
+            </Suspense>
           ) : (
             <>
               {/* Dynamic Campaign Landing Page View */}
@@ -852,53 +948,58 @@ export function App() {
                 </section>
               )}
 
-              {/* DYNAMIC HERO SLIDER (.hero) */}
-              {currentHero && (
-            <section className="sb-hero" aria-label="Special offer">
-              <img
-                className="sb-hero-img"
-                src={currentHero.imageUrl}
-                alt={currentHero.titleBn}
-                fetchPriority="high"
-              />
-              <div className="sb-hero-copy">
-                <span className="sb-eyebrow">{currentHero.eyebrow}</span>
-                <h1 style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {lang === 'bn' ? currentHero.titleBn : currentHero.titleEn}
-                </h1>
-                <p style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {lang === 'bn' ? currentHero.descBn : currentHero.descEn}
-                </p>
-                <div className="sb-price-line">
-                  <strong>
-                    {lang === 'bn' ? currentHero.priceLineBn : currentHero.priceLineEn}
-                  </strong>
+              {/* DYNAMIC HERO SLIDER (.hero) — Always rendered at fixed 224px height for 0.000 CLS & fast LCP */}
+              <section className="sb-hero" aria-label="Special offer">
+                {currentHero.imageUrl && (
+                  <img
+                    className="sb-hero-img"
+                    src={optimizeImageUrl(currentHero.imageUrl, 640, 75)}
+                    alt={currentHero.titleBn}
+                    width={490}
+                    height={224}
+                    fetchPriority="high"
+                    decoding="async"
+                  />
+                )}
+                <div className="sb-hero-copy">
+                  <span className="sb-eyebrow">{currentHero.eyebrow}</span>
+                  <h1 style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {lang === 'bn' ? currentHero.titleBn : currentHero.titleEn}
+                  </h1>
+                  <p style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {lang === 'bn' ? currentHero.descBn : currentHero.descEn}
+                  </p>
+                  <div className="sb-price-line">
+                    <strong>
+                      {lang === 'bn' ? currentHero.priceLineBn : currentHero.priceLineEn}
+                    </strong>
+                  </div>
+                  <a
+                    className="sb-cta"
+                    href="#popular"
+                    onClick={() => setShowAllPopular(true)}
+                  >
+                    {lang === 'bn' ? 'এখনই কিনুন' : 'Shop Now'} <span aria-hidden="true">→</span>
+                  </a>
                 </div>
-                <a
-                  className="sb-cta"
-                  href="#popular"
-                  onClick={() => setShowAllPopular(true)}
-                >
-                  {lang === 'bn' ? 'এখনই কিনুন' : 'Shop Now'} <span>→</span>
-                </a>
-              </div>
-              <div className="sb-discount">
-                UP TO
-                <small> SPECIAL</small>
-              </div>
-              {dynamicHeroSlides.length > 1 && (
-                <div className="sb-dots" aria-hidden="true">
-                  {dynamicHeroSlides.map((s, i) => (
-                    <i
-                      key={s.id}
-                      className={i === activeSlideIdx % dynamicHeroSlides.length ? 'active' : ''}
-                      onClick={() => setActiveSlideIdx(i)}
-                    />
-                  ))}
+                <div className="sb-discount">
+                  UP TO
+                  <small> SPECIAL</small>
                 </div>
-              )}
-            </section>
-          )}
+                {dynamicHeroSlides.length > 1 && (
+                  <div className="sb-dots" role="tablist" aria-label="Hero slides">
+                    {dynamicHeroSlides.map((s, i) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        aria-label={`Slide ${i + 1}`}
+                        className={i === activeSlideIdx % dynamicHeroSlides.length ? 'active' : ''}
+                        onClick={() => setActiveSlideIdx(i)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
 
           {/* 6 CATEGORIES (.categories) */}
           <nav className="sb-categories" id="categories" aria-label="Product categories">
@@ -908,7 +1009,7 @@ export function App() {
               onClick={() => handleSelectShopBanglaCategory('fashion')}
             >
               <span className="sb-cat-icon">
-                <svg viewBox="0 0 24 24">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M7 4 4 6 2.5 11l4 1.5L8 9v12h8V9l1.5 3.5 4-1.5L20 6l-3-2-3 2h-4L7 4Z" />
                 </svg>
               </span>
@@ -922,7 +1023,7 @@ export function App() {
               onClick={() => handleSelectShopBanglaCategory('electronics')}
             >
               <span className="sb-cat-icon">
-                <svg viewBox="0 0 24 24">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <rect x="7" y="2" width="10" height="20" rx="2" />
                   <path d="M10 5h4M11 19h2" />
                 </svg>
@@ -937,7 +1038,7 @@ export function App() {
               onClick={() => handleSelectShopBanglaCategory('beauty')}
             >
               <span className="sb-cat-icon">
-                <svg viewBox="0 0 24 24">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M9 3h6l1 4-2 2v11H10V9L8 7l1-4ZM7 12H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h4M17 13h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-3" />
                   <path d="M9 6h6" />
                 </svg>
@@ -952,7 +1053,7 @@ export function App() {
               onClick={() => handleSelectShopBanglaCategory('home')}
             >
               <span className="sb-cat-icon">
-                <svg viewBox="0 0 24 24">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="m3 11 9-8 9 8M5 10v11h14V10M9 21v-7h6v7" />
                 </svg>
               </span>
@@ -966,7 +1067,7 @@ export function App() {
               onClick={() => handleSelectShopBanglaCategory('grocery')}
             >
               <span className="sb-cat-icon">
-                <svg viewBox="0 0 24 24">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M3 10h18l-2 11H5L3 10ZM2 10l2-5h16l2 5M8 5V3h8v2M9 14v3M15 14v3" />
                 </svg>
               </span>
@@ -980,7 +1081,7 @@ export function App() {
               onClick={() => handleSelectShopBanglaCategory('gifts')}
             >
               <span className="sb-cat-icon">
-                <svg viewBox="0 0 24 24">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M12 21V9M12 9C7 9 4 6 4 3c5 0 8 2 8 6ZM12 12c0-4 3-7 8-7 0 4-3 7-8 7ZM4 13h16v8H4zM2 10h20v4H2z" />
                 </svg>
               </span>
@@ -989,34 +1090,58 @@ export function App() {
             </button>
           </nav>
 
-          {/* DYNAMIC TODAY'S DEAL (.deal#offers) */}
-          {dealProduct && (
-            <section className="sb-deal" id="offers">
-              <img
-                className="sb-deal-img"
-                src={dealProduct.imageUrl}
-                alt={dealProduct.nameBn}
-                loading="lazy"
-              />
-              <div className="sb-deal-label">
-                <span className="sb-bolt">ϟ</span> TODAY&apos;S DEAL
-              </div>
-              <h2 style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {lang === 'bn' ? dealProduct.nameBn : dealProduct.nameEn}
-              </h2>
-              <p>
-                ৳ {(dealProduct.salePrice ?? dealProduct.price).toLocaleString('en-BD')} ·{' '}
-                {dealProduct.unitLabel}
-              </p>
-              <button
-                type="button"
-                className="sb-deal-btn"
-                onClick={() => setActiveProductModal(dealProduct)}
-              >
-                Shop Now &nbsp; →
-              </button>
-            </section>
-          )}
+          {/* DYNAMIC TODAY'S DEAL (.deal#offers) — Always rendered with locked min-height for 0.000 CLS */}
+          <section className="sb-deal" id="offers">
+            {dealProduct ? (
+              <>
+                <img
+                  className="sb-deal-img"
+                  src={optimizeImageUrl(dealProduct.imageUrl, 320, 75)}
+                  alt={dealProduct.nameBn}
+                  width={220}
+                  height={125}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className="sb-deal-label">
+                  <span className="sb-bolt" aria-hidden="true">ϟ</span> TODAY&apos;S DEAL
+                </div>
+                <h2 style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {lang === 'bn' ? dealProduct.nameBn : dealProduct.nameEn}
+                </h2>
+                <p>
+                  ৳ {(dealProduct.salePrice ?? dealProduct.price).toLocaleString('en-BD')} ·{' '}
+                  {dealProduct.unitLabel}
+                </p>
+                <button
+                  type="button"
+                  className="sb-deal-btn"
+                  onClick={() => setActiveProductModal(dealProduct)}
+                >
+                  Shop Now &nbsp; →
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="sb-deal-label">
+                  <span className="sb-bolt" aria-hidden="true">ϟ</span> TODAY&apos;S DEAL
+                </div>
+                <h2>
+                  {lang === 'bn'
+                    ? siteSettings.flashSaleTitleBn || 'ফ্ল্যাশ সেল ধামাকা অফার'
+                    : 'Flash Sale Special Offer'}
+                </h2>
+                <p>
+                  {lang === 'bn'
+                    ? '১০০% খাঁটি ও অর্গানিক পণ্যে বিশেষ ছাড়'
+                    : 'Special discounts on 100% pure & organic products'}
+                </p>
+                <a className="sb-deal-btn" href="#popular" onClick={() => setShowAllPopular(true)}>
+                  Shop Now &nbsp; →
+                </a>
+              </>
+            )}
+          </section>
 
           {/* DYNAMIC POPULAR PRODUCTS (.section#popular) */}
           <section className="sb-section" id="popular">
@@ -1054,22 +1179,51 @@ export function App() {
                   : showAllPopular
                   ? 'সংক্ষিপ্ত ভিউ'
                   : 'সব দেখুন'}{' '}
-                <span>→</span>
+                <span aria-hidden="true">→</span>
               </button>
             </div>
 
             {isLoadingProducts ? (
-              <div
-                style={{
-                  padding: '28px 16px',
-                  textAlign: 'center',
-                  border: '1px solid #efeee8',
-                  borderRadius: 15,
-                  fontSize: 12,
-                  color: '#68746b',
-                }}
-              >
-                ডাটাবেস থেকে পণ্য লোড হচ্ছে...
+              <div className="sb-products" aria-busy="true">
+                {[1, 2, 3].map((sk) => (
+                  <div
+                    key={sk}
+                    className="sb-product"
+                    style={{ height: 248, background: '#fff' }}
+                  >
+                    <div
+                      className="sb-product-image"
+                      style={{ background: '#f2f1ec' }}
+                    />
+                    <div
+                      style={{
+                        height: 14,
+                        width: '80%',
+                        background: '#f2f1ec',
+                        borderRadius: 6,
+                        marginTop: 10,
+                      }}
+                    />
+                    <div
+                      style={{
+                        height: 14,
+                        width: '50%',
+                        background: '#f2f1ec',
+                        borderRadius: 6,
+                        marginTop: 8,
+                      }}
+                    />
+                    <div
+                      style={{
+                        height: 30,
+                        width: '100%',
+                        background: '#e9efe9',
+                        borderRadius: 20,
+                        marginTop: 'auto',
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
             ) : popularProducts.length === 0 ? (
               <div
@@ -1150,9 +1304,12 @@ export function App() {
                         onClick={() => setActiveProductModal(product)}
                       >
                         <img
-                          src={product.imageUrl}
+                          src={optimizeImageUrl(product.imageUrl, 320, 75)}
                           alt={lang === 'bn' ? product.nameBn : product.nameEn}
+                          width={200}
+                          height={124}
                           loading="lazy"
+                          decoding="async"
                         />
                         <button
                           type="button"
@@ -1160,7 +1317,7 @@ export function App() {
                           aria-label="Add to wishlist"
                           onClick={(e) => toggleWishlist(product.id, e)}
                         >
-                          <svg viewBox="0 0 24 24">
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" />
                           </svg>
                         </button>
@@ -1189,7 +1346,7 @@ export function App() {
                         className="sb-add"
                         onClick={() => handleAddToCart(product, 1)}
                       >
-                        <svg viewBox="0 0 24 24">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M2 3h2l2.5 12h12L21 7H5M9 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM18 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" />
                         </svg>
                         {lang === 'bn' ? 'কার্টে যোগ করুন' : 'Add to Cart'}
@@ -1212,7 +1369,7 @@ export function App() {
                   className="sb-seeall"
                   onClick={() => setShowAllPopular(true)}
                 >
-                  সব দেখুন <span>→</span>
+                  সব দেখুন <span aria-hidden="true">→</span>
                 </button>
               </div>
               <div className="sb-new-products">
@@ -1226,9 +1383,12 @@ export function App() {
                     >
                       <span className="sb-new-tag">NEW</span>
                       <img
-                        src={item.imageUrl}
+                        src={optimizeImageUrl(item.imageUrl, 200, 75)}
                         alt={lang === 'bn' ? item.nameBn : item.nameEn}
+                        width={110}
+                        height={110}
                         loading="lazy"
+                        decoding="async"
                       />
                       <strong>{lang === 'bn' ? item.nameBn : item.nameEn}</strong>
                       <small>৳ {effectivePrice.toLocaleString('en-BD')}</small>
@@ -1242,7 +1402,9 @@ export function App() {
               {/* Live Order & Steadfast Courier Tracker */}
               {showTrackerSection && (
                 <div id="tracker-section" style={{ marginTop: 18 }}>
-                  <OrderTrackingSection lang={lang} recentOrders={recentOrders} />
+                  <Suspense fallback={null}>
+                    <OrderTrackingSection lang={lang} recentOrders={recentOrders} />
+                  </Suspense>
                 </div>
               )}
             </>
@@ -1262,8 +1424,12 @@ export function App() {
           >
             {siteSettings.logoUrl && (
               <img
-                src={siteSettings.logoUrl}
+                src={optimizeImageUrl(siteSettings.logoUrl, 64, 80)}
                 alt={siteSettings.siteName}
+                width={24}
+                height={24}
+                loading="lazy"
+                decoding="async"
                 style={{
                   width: 24,
                   height: 24,
@@ -1432,69 +1598,81 @@ export function App() {
         </nav>
       </div>
 
-      {/* Product Detail & Review Modal */}
-      <ProductDetailModal
-        product={activeProductModal}
-        allProducts={products}
-        lang={lang}
-        reviews={reviews}
-        siteSettings={siteSettings}
-        wishlist={wishlist}
-        onToggleWishlist={toggleWishlist}
-        onNavigateCategory={(cat) => {
-          setSelectedCategory(cat);
-          setActiveNavTab('categories');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        onClose={() => {
-          setActiveProductModal(null);
-          if (window.location.search.includes('product=')) {
-            window.history.replaceState({}, '', window.location.pathname);
-          }
-        }}
-        onSelectProduct={(nextProd) => setActiveProductModal(nextProd)}
-        onAddToCart={handleAddToCart}
-      />
+      {/* Product Detail & Review Modal (Lazy-loaded on demand) */}
+      {activeProductModal && (
+        <Suspense fallback={null}>
+          <ProductDetailModal
+            product={activeProductModal}
+            allProducts={products}
+            lang={lang}
+            reviews={reviews}
+            siteSettings={siteSettings}
+            wishlist={wishlist}
+            onToggleWishlist={toggleWishlist}
+            onNavigateCategory={(cat) => {
+              setSelectedCategory(cat);
+              setActiveNavTab('categories');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onClose={() => {
+              setActiveProductModal(null);
+              if (window.location.search.includes('product=')) {
+                window.history.replaceState({}, '', window.location.pathname);
+              }
+            }}
+            onSelectProduct={(nextProd) => setActiveProductModal(nextProd)}
+            onAddToCart={handleAddToCart}
+          />
+        </Suspense>
+      )}
 
-      {/* User Account, Login/Registration & Order History Modal */}
-      <UserAccountModal
-        isOpen={isAccountModalOpen}
-        onClose={() => {
-          setIsAccountModalOpen(false);
-          if (activeNavTab === 'account') setActiveNavTab('home');
-        }}
-        user={user}
-        userProfile={userProfile}
-        isAdmin={isAdmin}
-        lang={lang}
-        recentOrders={recentOrders}
-        onOpenAdmin={() => {
-          if (isAdmin) {
-            setIsAccountModalOpen(false);
-            setIsAdminOpen(true);
-          }
-        }}
-      />
+      {/* User Account, Login/Registration & Order History Modal (Lazy-loaded on demand) */}
+      {isAccountModalOpen && (
+        <Suspense fallback={null}>
+          <UserAccountModal
+            isOpen={isAccountModalOpen}
+            onClose={() => {
+              setIsAccountModalOpen(false);
+              if (activeNavTab === 'account') setActiveNavTab('home');
+            }}
+            user={user}
+            userProfile={userProfile}
+            isAdmin={isAdmin}
+            lang={lang}
+            recentOrders={recentOrders}
+            onOpenAdmin={() => {
+              if (isAdmin) {
+                setIsAccountModalOpen(false);
+                setIsAdminOpen(true);
+              }
+            }}
+          />
+        </Suspense>
+      )}
 
-      {/* Cart & Online Payment Gateway Drawer (COD + bKash/Nagad/Rocket) */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        startInCheckout={openCartInCheckout}
-        onClose={() => {
-          setIsCartOpen(false);
-          setOpenCartInCheckout(false);
-        }}
-        cart={cart}
-        coupons={coupons}
-        siteSettings={siteSettings}
-        onUpdateQty={handleUpdateQty}
-        onRemove={handleRemoveCartItem}
-        onClearCart={() => setCart([])}
-        lang={lang}
-        onOrderCreated={handleOrderCreated}
-        user={user}
-        userProfile={userProfile}
-      />
+      {/* Cart & Online Payment Gateway Drawer (Lazy-loaded on demand) */}
+      {isCartOpen && (
+        <Suspense fallback={null}>
+          <CartDrawer
+            isOpen={isCartOpen}
+            startInCheckout={openCartInCheckout}
+            onClose={() => {
+              setIsCartOpen(false);
+              setOpenCartInCheckout(false);
+            }}
+            cart={cart}
+            coupons={coupons}
+            siteSettings={siteSettings}
+            onUpdateQty={handleUpdateQty}
+            onRemove={handleRemoveCartItem}
+            onClearCart={() => setCart([])}
+            lang={lang}
+            onOrderCreated={handleOrderCreated}
+            user={user}
+            userProfile={userProfile}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

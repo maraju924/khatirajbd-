@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Package } from 'lucide-react';
 import { ProductCategory } from '../types';
+import { optimizeImageUrl } from '../utils/imageOptimizer';
 
 interface ProductImageProps {
   src: string;
   alt: string;
   category?: ProductCategory;
   className?: string;
+  width?: number;
+  height?: number;
+  priority?: boolean;
 }
 
 export const ProductImage: React.FC<ProductImageProps> = ({
@@ -14,6 +18,9 @@ export const ProductImage: React.FC<ProductImageProps> = ({
   alt,
   category = 'honey',
   className = 'w-full h-full object-cover',
+  width = 360,
+  height = 360,
+  priority = false,
 }) => {
   const [hasError, setHasError] = useState(false);
 
@@ -31,6 +38,7 @@ export const ProductImage: React.FC<ProductImageProps> = ({
     jewellery: 'from-amber-600/15 via-stone-100 to-yellow-900/10',
     organic_food: 'from-amber-700/10 via-stone-100 to-emerald-800/10',
     home_lifestyle: 'from-orange-800/10 via-stone-100 to-stone-200',
+    spices: 'from-orange-700/15 via-stone-100 to-amber-900/10',
   };
 
   if (!src || hasError) {
@@ -54,10 +62,14 @@ export const ProductImage: React.FC<ProductImageProps> = ({
 
   return (
     <img
-      src={src}
+      src={optimizeImageUrl(src, width, 75)}
       alt={alt}
+      width={width}
+      height={height}
       referrerPolicy="no-referrer"
-      loading="lazy"
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
+      decoding="async"
       onError={() => setHasError(true)}
       className={className}
     />

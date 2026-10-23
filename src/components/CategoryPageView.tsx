@@ -818,8 +818,9 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
               </span>
               <button
                 type="button"
+                aria-label="Close filter panel"
                 onClick={() => setShowFilterDrawer(false)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                className="text-slate-600 hover:text-slate-900 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1009,7 +1010,7 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
 
                     {/* Discount / Custom Badge */}
                     {hasDiscount && (
-                      <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-[#c59b50] text-white font-mono text-[10px] font-bold">
+                      <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-[#123b2e] text-[#f7e6be] font-mono text-[10px] font-bold">
                         -{discountPct}%
                       </span>
                     )}
@@ -1082,7 +1083,7 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                         ৳{effectivePrice.toLocaleString('en-BD')}
                       </strong>
                       {hasDiscount && (
-                        <del className="text-[10px] font-mono text-slate-400">
+                        <del className="text-[10px] font-mono text-slate-600">
                           ৳{regularPrice.toLocaleString('en-BD')}
                         </del>
                       )}
@@ -1090,7 +1091,8 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectProduct(product)}
-                      className="text-slate-400 hover:text-[#123b2e] p-1 cursor-pointer"
+                      aria-label={lang === 'bn' ? 'বিস্তারিত দেখুন' : 'Quick View'}
+                      className="text-slate-600 hover:text-[#123b2e] p-1 cursor-pointer"
                       title={lang === 'bn' ? 'বিস্তারিত দেখুন' : 'Quick View'}
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -1182,7 +1184,7 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                     className="w-full h-full object-cover"
                   />
                   {hasDiscount && (
-                    <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#c59b50] text-white font-mono text-[9px] font-bold">
+                    <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#123b2e] text-[#f7e6be] font-mono text-[9px] font-bold">
                       -{discountPct}%
                     </span>
                   )}
@@ -1197,8 +1199,9 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                     </span>
                     <button
                       type="button"
+                      aria-label="Toggle wishlist"
                       onClick={(e) => onToggleWishlist(product.id, e)}
-                      className="text-slate-400 hover:text-red-600 cursor-pointer"
+                      className="text-slate-600 hover:text-red-600 cursor-pointer"
                     >
                       <Heart
                         className={`w-4 h-4 ${
@@ -1253,11 +1256,11 @@ export const CategoryPageView: React.FC<CategoryPageViewProps> = ({
                         ৳{effectivePrice.toLocaleString('en-BD')}
                       </strong>
                       {hasDiscount && (
-                        <del className="text-[10px] font-mono text-slate-400">
+                        <del className="text-[10px] font-mono text-slate-600">
                           ৳{regularPrice.toLocaleString('en-BD')}
                         </del>
                       )}
-                      <span className="text-[10px] text-amber-600 font-mono ml-1">
+                      <span className="text-[10px] text-amber-800 font-mono ml-1">
                         ★ {rStat.avg.toFixed(1)}
                       </span>
                     </div>

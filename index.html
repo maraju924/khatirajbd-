@@ -2,17 +2,65 @@
 <html lang="bn">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover" />
     <meta name="theme-color" content="#123b2e" />
-    <title>ShopBangla — Premium Shopping</title>
-    <meta name="description" content="ShopBangla — বাংলাদেশের প্রিমিয়াম অনলাইন শপিং অভিজ্ঞতা।" />
-    <meta property="og:title" content="ShopBangla — Premium Shopping" />
-    <meta property="og:description" content="ShopBangla — বাংলাদেশের প্রিমিয়াম অনলাইন শপিং অভিজ্ঞতা।" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <title>BazarHaat — বাংলাদেশি ই-কমার্স ও অ্যাডমিন প্ল্যাটফর্ম</title>
+    <meta
+      name="description"
+      content="বাংলাদেশের জন্য আধুনিক দ্বিভাষিক (বাংলা ও ইংরেজি) মাল্টি-ক্যাটাগরি ই-কমার্স ওয়েবসাইট ও অ্যাডমিন ড্যাশবোর্ড — ক্যাশ অন ডেলিভারি, ডেলিভারি জোন চার্জ, কুপন ও ফ্ল্যাশ সেল সুবিধাসহ।"
+    />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="BazarHaat" />
+    <meta property="og:locale" content="bn_BD" />
+    <meta property="og:title" content="BazarHaat — বাংলাদেশি ই-কমার্স ও অ্যাডমিন প্ল্যাটফর্ম" />
+    <meta
+      property="og:description"
+      content="বাংলাদেশের জন্য আধুনিক দ্বিভাষিক (বাংলা ও ইংরেজি) মাল্টি-ক্যাটাগরি ই-কমার্স ওয়েবসাইট ও অ্যাডমিন ড্যাশবোর্ড — ক্যাশ অন ডেলিভারি, ডেলিভারি জোন চার্জ, কুপন ও ফ্ল্যাশ সেল সুবিধাসহ।"
+    />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="BazarHaat — বাংলাদেশি ই-কমার্স ও অ্যাডমিন প্ল্যাটফর্ম" />
+    <meta
+      name="twitter:description"
+      content="বাংলাদেশের জন্য আধুনিক দ্বিভাষিক (বাংলা ও ইংরেজি) মাল্টি-ক্যাটাগরি ই-কমার্স ওয়েবসাইট ও অ্যাডমিন ড্যাশবোর্ড — ক্যাশ অন ডেলিভারি, ডেলিভারি জোন চার্জ, কুপন ও ফ্ল্যাশ সেল সুবিধাসহ।"
+    />
+
+    <!-- Preconnect to critical origins to reduce Mobile 4G DNS/TLS latency -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
+
+    <!-- Non-render-blocking Google Fonts with swap fallback -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      />
+    </noscript>
+
+    <!-- Initial Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "OnlineStore",
+        "name": "BazarHaat",
+        "description": "বাংলাদেশের জন্য আধুনিক দ্বিভাষিক (বাংলা ও ইংরেজি) মাল্টি-ক্যাটাগরি ই-কমার্স ওয়েবসাইট ও অ্যাডমিন ড্যাশবোর্ড — ক্যাশ অন ডেলিভারি, ডেলিভারি জোন চার্জ, কুপন ও ফ্ল্যাশ সেল সুবিধাসহ।",
+        "currenciesAccepted": "BDT",
+        "paymentAccepted": "Cash on Delivery, bKash, Nagad, Rocket",
+        "areaServed": {
+          "@type": "Country",
+          "name": "Bangladesh"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
