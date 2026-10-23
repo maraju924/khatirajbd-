@@ -1,0 +1,684 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'maraju921@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Validation Blueprint: Product
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+        'nameBn', 'nameEn', 'descriptionBn', 'descriptionEn',
+        'category', 'price', 'salePrice', 'isFlashSale',
+        'stock', 'unitLabel', 'imageUrl', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'nameBn', 'nameEn', 'shortSummaryBn', 'descriptionBn', 'descriptionEn',
+        'category', 'price', 'salePrice', 'isFlashSale',
+        'stock', 'unitLabel', 'imageUrl', 'galleryUrls', 'galleryItems', 'videoUrl',
+        'variants', 'highlights', 'specifications', 'faqs',
+        'wholesaleTiers', 'upsellProductIds',
+        'freeDelivery', 'weightGrams', 'warrantyText', 'returnPolicyText', 'badgeLabel',
+        'slug', 'focusKeyphrase', 'relatedKeyphrases', 'seoTitle', 'metaDescription',
+        'canonicalUrl', 'metaRobotsIndex', 'metaRobotsFollow',
+        'ogTitle', 'ogDescription', 'ogImageUrl',
+        'twitterTitle', 'twitterDescription', 'twitterImageUrl',
+        'schemaBrand', 'schemaSku', 'schemaGtin', 'schemaMpn',
+        'schemaCondition', 'schemaAvailability', 'imageAltText',
+        'isCornerstone', 'internalLinksUrl', 'outboundLinkUrl', 'redirectOldSlug',
+        'seoScore', 'readabilityScore',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.nameBn is string && data.nameBn.size() >= 1 && data.nameBn.size() <= 160 &&
+      data.nameEn is string && data.nameEn.size() >= 1 && data.nameEn.size() <= 160 &&
+      (!('shortSummaryBn' in data) || (data.shortSummaryBn is string && data.shortSummaryBn.size() <= 600)) &&
+      data.descriptionBn is string && data.descriptionBn.size() >= 1 && data.descriptionBn.size() <= 8000 &&
+      data.descriptionEn is string && data.descriptionEn.size() >= 1 && data.descriptionEn.size() <= 8000 &&
+      data.category is string && data.category.size() <= 40 &&
+      data.category in [
+        'honey', 'ghee_oil', 'superfoods', 'nuts_dates', 'wellness',
+        'skincare', 'kitchen_cutlery', 'combo', 'fashion', 'electronics',
+        'jewellery', 'organic_food', 'home_lifestyle'
+      ] &&
+      data.price is number && data.price >= 0 && data.price <= 10000000 &&
+      data.salePrice is number && data.salePrice >= 0 && data.salePrice <= data.price &&
+      data.isFlashSale is bool &&
+      data.stock is number && data.stock >= 0 && data.stock <= 100000 &&
+      data.unitLabel is string && data.unitLabel.size() >= 1 && data.unitLabel.size() <= 120 &&
+      data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 250000 &&
+      (!('galleryUrls' in data) || (data.galleryUrls is list && data.galleryUrls.size() <= 30)) &&
+      (!('galleryItems' in data) || (data.galleryItems is list && data.galleryItems.size() <= 30)) &&
+      (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() <= 1000)) &&
+      (!('variants' in data) || (data.variants is list && data.variants.size() <= 50)) &&
+      (!('highlights' in data) || (data.highlights is list && data.highlights.size() <= 30)) &&
+      (!('specifications' in data) || (data.specifications is list && data.specifications.size() <= 40)) &&
+      (!('faqs' in data) || (data.faqs is list && data.faqs.size() <= 30)) &&
+      (!('wholesaleTiers' in data) || (data.wholesaleTiers is list && data.wholesaleTiers.size() <= 20)) &&
+      (!('upsellProductIds' in data) || (data.upsellProductIds is list && data.upsellProductIds.size() <= 20)) &&
+      (!('freeDelivery' in data) || data.freeDelivery is bool) &&
+      (!('weightGrams' in data) || (data.weightGrams is number && data.weightGrams >= 0 && data.weightGrams <= 1000000)) &&
+      (!('warrantyText' in data) || (data.warrantyText is string && data.warrantyText.size() <= 300)) &&
+      (!('returnPolicyText' in data) || (data.returnPolicyText is string && data.returnPolicyText.size() <= 300)) &&
+      (!('badgeLabel' in data) || (data.badgeLabel is string && data.badgeLabel.size() <= 80)) &&
+      (!('slug' in data) || (data.slug is string && data.slug.size() <= 200)) &&
+      (!('focusKeyphrase' in data) || (data.focusKeyphrase is string && data.focusKeyphrase.size() <= 200)) &&
+      (!('relatedKeyphrases' in data) || (data.relatedKeyphrases is string && data.relatedKeyphrases.size() <= 500)) &&
+      (!('seoTitle' in data) || (data.seoTitle is string && data.seoTitle.size() <= 250)) &&
+      (!('metaDescription' in data) || (data.metaDescription is string && data.metaDescription.size() <= 500)) &&
+      (!('canonicalUrl' in data) || (data.canonicalUrl is string && data.canonicalUrl.size() <= 500)) &&
+      (!('metaRobotsIndex' in data) || (data.metaRobotsIndex is string && data.metaRobotsIndex.size() <= 20 && data.metaRobotsIndex in ['index', 'noindex'])) &&
+      (!('metaRobotsFollow' in data) || (data.metaRobotsFollow is string && data.metaRobotsFollow.size() <= 20 && data.metaRobotsFollow in ['follow', 'nofollow'])) &&
+      (!('ogTitle' in data) || (data.ogTitle is string && data.ogTitle.size() <= 250)) &&
+      (!('ogDescription' in data) || (data.ogDescription is string && data.ogDescription.size() <= 500)) &&
+      (!('ogImageUrl' in data) || (data.ogImageUrl is string && data.ogImageUrl.size() <= 250000)) &&
+      (!('twitterTitle' in data) || (data.twitterTitle is string && data.twitterTitle.size() <= 250)) &&
+      (!('twitterDescription' in data) || (data.twitterDescription is string && data.twitterDescription.size() <= 500)) &&
+      (!('twitterImageUrl' in data) || (data.twitterImageUrl is string && data.twitterImageUrl.size() <= 250000)) &&
+      (!('schemaBrand' in data) || (data.schemaBrand is string && data.schemaBrand.size() <= 150)) &&
+      (!('schemaSku' in data) || (data.schemaSku is string && data.schemaSku.size() <= 120)) &&
+      (!('schemaGtin' in data) || (data.schemaGtin is string && data.schemaGtin.size() <= 120)) &&
+      (!('schemaMpn' in data) || (data.schemaMpn is string && data.schemaMpn.size() <= 120)) &&
+      (!('schemaCondition' in data) || (data.schemaCondition is string && data.schemaCondition.size() <= 40 && data.schemaCondition in ['NewCondition', 'RefurbishedCondition', 'UsedCondition'])) &&
+      (!('schemaAvailability' in data) || (data.schemaAvailability is string && data.schemaAvailability.size() <= 40 && data.schemaAvailability in ['InStock', 'OutOfStock', 'PreOrder'])) &&
+      (!('imageAltText' in data) || (data.imageAltText is string && data.imageAltText.size() <= 300)) &&
+      (!('isCornerstone' in data) || data.isCornerstone is bool) &&
+      (!('internalLinksUrl' in data) || (data.internalLinksUrl is string && data.internalLinksUrl.size() <= 500)) &&
+      (!('outboundLinkUrl' in data) || (data.outboundLinkUrl is string && data.outboundLinkUrl.size() <= 500)) &&
+      (!('redirectOldSlug' in data) || (data.redirectOldSlug is string && data.redirectOldSlug.size() <= 250)) &&
+      (!('seoScore' in data) || (data.seoScore is number && data.seoScore >= 0 && data.seoScore <= 100)) &&
+      (!('readabilityScore' in data) || (data.readabilityScore is number && data.readabilityScore >= 0 && data.readabilityScore <= 100)) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Coupon
+    function isValidCoupon(data) {
+      return data.keys().hasAll([
+        'code', 'discountType', 'discountValue', 'minOrderAmount',
+        'descriptionBn', 'descriptionEn', 'isActive', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'code', 'discountType', 'discountValue', 'minOrderAmount',
+        'descriptionBn', 'descriptionEn', 'isActive', 'createdAt', 'updatedAt'
+      ]) &&
+      data.code is string && data.code.size() >= 2 && data.code.size() <= 32 &&
+      data.code.matches('^[A-Z0-9_\\-]+$') &&
+      data.discountType is string && data.discountType.size() <= 20 &&
+      data.discountType in ['percentage', 'fixed'] &&
+      data.discountValue is number && data.discountValue > 0 && data.discountValue <= 100000 &&
+      data.minOrderAmount is number && data.minOrderAmount >= 0 && data.minOrderAmount <= 1000000 &&
+      data.descriptionBn is string && data.descriptionBn.size() >= 1 && data.descriptionBn.size() <= 160 &&
+      data.descriptionEn is string && data.descriptionEn.size() >= 1 && data.descriptionEn.size() <= 160 &&
+      data.isActive is bool &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Order (Contains Customer PII + Online Payment + Steadfast Courier)
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+        'orderCode', 'customerName', 'customerPhone', 'district', 'address',
+        'deliveryZone', 'itemsSummary', 'itemCount', 'subtotal',
+        'discountAmount', 'couponCode', 'deliveryCharge', 'totalPayable',
+        'paymentMethod', 'paymentStatus', 'transactionId', 'senderPhone',
+        'steadfastConsignmentId', 'steadfastStatus', 'adminNote',
+        'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'orderCode', 'customerName', 'customerPhone', 'district', 'address',
+        'deliveryZone', 'itemsSummary', 'itemCount', 'subtotal',
+        'discountAmount', 'couponCode', 'deliveryCharge', 'totalPayable',
+        'paymentMethod', 'paymentStatus', 'transactionId', 'senderPhone',
+        'steadfastConsignmentId', 'steadfastStatus', 'adminNote',
+        'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.orderCode is string && data.orderCode.size() >= 4 && data.orderCode.size() <= 32 &&
+      data.orderCode.matches('^[A-Z0-9\\-]+$') &&
+      data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100 &&
+      data.customerPhone is string && data.customerPhone.size() == 11 &&
+      data.customerPhone.matches('^01[3-9][0-9]{8}$') &&
+      data.district is string && data.district.size() >= 2 && data.district.size() <= 60 &&
+      data.address is string && data.address.size() >= 4 && data.address.size() <= 400 &&
+      data.deliveryZone is string && data.deliveryZone.size() <= 20 &&
+      data.deliveryZone in ['inside_dhaka', 'outside_dhaka'] &&
+      data.itemsSummary is string && data.itemsSummary.size() >= 2 && data.itemsSummary.size() <= 2000 &&
+      data.itemCount is number && data.itemCount >= 1 && data.itemCount <= 1000 &&
+      data.subtotal is number && data.subtotal >= 0 && data.subtotal <= 10000000 &&
+      data.discountAmount is number && data.discountAmount >= 0 && data.discountAmount <= data.subtotal &&
+      data.couponCode is string && data.couponCode.size() >= 1 && data.couponCode.size() <= 32 &&
+      data.deliveryCharge is number && data.deliveryCharge >= 0 && data.deliveryCharge <= 2000 &&
+      data.totalPayable is number && data.totalPayable >= 0 && data.totalPayable <= 10000000 &&
+      data.paymentMethod is string && data.paymentMethod.size() <= 20 &&
+      data.paymentMethod in ['COD', 'bKash', 'Nagad', 'Rocket', 'Upay', 'Bank'] &&
+      data.paymentStatus is string && data.paymentStatus.size() <= 30 &&
+      data.paymentStatus in ['Unpaid', 'Pending Verification', 'Paid', 'Rejected'] &&
+      data.transactionId is string && data.transactionId.size() >= 1 && data.transactionId.size() <= 80 &&
+      data.senderPhone is string && data.senderPhone.size() >= 1 && data.senderPhone.size() <= 20 &&
+      data.steadfastConsignmentId is string && data.steadfastConsignmentId.size() >= 1 && data.steadfastConsignmentId.size() <= 60 &&
+      data.steadfastStatus is string && data.steadfastStatus.size() >= 1 && data.steadfastStatus.size() <= 60 &&
+      data.adminNote is string && data.adminNote.size() >= 1 && data.adminNote.size() <= 500 &&
+      data.status is string && data.status.size() <= 20 &&
+      data.status in ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: OrderTracking (PII-Free Public Tracking Summary)
+    function isValidOrderTracking(data) {
+      return data.keys().hasAll([
+        'orderCode', 'itemsSummary', 'itemCount', 'deliveryZone',
+        'subtotal', 'discountAmount', 'deliveryCharge', 'totalPayable',
+        'paymentMethod', 'paymentStatus', 'steadfastConsignmentId', 'steadfastStatus',
+        'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'orderCode', 'itemsSummary', 'itemCount', 'deliveryZone',
+        'subtotal', 'discountAmount', 'deliveryCharge', 'totalPayable',
+        'paymentMethod', 'paymentStatus', 'steadfastConsignmentId', 'steadfastStatus',
+        'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.orderCode is string && data.orderCode.size() >= 4 && data.orderCode.size() <= 32 &&
+      data.orderCode.matches('^[A-Z0-9\\-]+$') &&
+      data.itemsSummary is string && data.itemsSummary.size() >= 2 && data.itemsSummary.size() <= 2000 &&
+      data.itemCount is number && data.itemCount >= 1 && data.itemCount <= 1000 &&
+      data.deliveryZone is string && data.deliveryZone.size() <= 20 &&
+      data.deliveryZone in ['inside_dhaka', 'outside_dhaka'] &&
+      data.subtotal is number && data.subtotal >= 0 && data.subtotal <= 10000000 &&
+      data.discountAmount is number && data.discountAmount >= 0 && data.discountAmount <= data.subtotal &&
+      data.deliveryCharge is number && data.deliveryCharge >= 0 && data.deliveryCharge <= 2000 &&
+      data.totalPayable is number && data.totalPayable >= 0 && data.totalPayable <= 10000000 &&
+      data.paymentMethod is string && data.paymentMethod.size() <= 20 &&
+      data.paymentMethod in ['COD', 'bKash', 'Nagad', 'Rocket', 'Upay', 'Bank'] &&
+      data.paymentStatus is string && data.paymentStatus.size() <= 30 &&
+      data.paymentStatus in ['Unpaid', 'Pending Verification', 'Paid', 'Rejected'] &&
+      data.steadfastConsignmentId is string && data.steadfastConsignmentId.size() >= 1 && data.steadfastConsignmentId.size() <= 60 &&
+      data.steadfastStatus is string && data.steadfastStatus.size() >= 1 && data.steadfastStatus.size() <= 60 &&
+      data.status is string && data.status.size() <= 20 &&
+      data.status in ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: AbandonedCart
+    function isValidAbandonedCart(data) {
+      return data.keys().hasAll([
+        'cartCode', 'customerName', 'customerPhone', 'district', 'address',
+        'itemsSummary', 'subtotal', 'recoveryStatus', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'cartCode', 'customerName', 'customerPhone', 'district', 'address',
+        'itemsSummary', 'subtotal', 'recoveryStatus', 'createdAt', 'updatedAt'
+      ]) &&
+      data.cartCode is string && data.cartCode.size() >= 4 && data.cartCode.size() <= 40 &&
+      data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100 &&
+      data.customerPhone is string && data.customerPhone.size() == 11 &&
+      data.customerPhone.matches('^01[3-9][0-9]{8}$') &&
+      data.district is string && data.district.size() >= 1 && data.district.size() <= 60 &&
+      data.address is string && data.address.size() >= 1 && data.address.size() <= 400 &&
+      data.itemsSummary is string && data.itemsSummary.size() >= 1 && data.itemsSummary.size() <= 2000 &&
+      data.subtotal is number && data.subtotal >= 0 && data.subtotal <= 10000000 &&
+      data.recoveryStatus is string && data.recoveryStatus.size() <= 20 &&
+      data.recoveryStatus in ['New', 'Reminded', 'Recovered'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Slider
+    function isValidSlider(data) {
+      return data.keys().hasAll([
+        'titleBn', 'titleEn', 'subtitleBn', 'subtitleEn',
+        'btnTextBn', 'btnTextEn', 'btnLink', 'imageUrl',
+        'sliderType', 'isActive', 'sortOrder', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'titleBn', 'titleEn', 'subtitleBn', 'subtitleEn',
+        'btnTextBn', 'btnTextEn', 'btnLink', 'imageUrl',
+        'sliderType', 'isActive', 'sortOrder', 'createdAt', 'updatedAt'
+      ]) &&
+      data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 160 &&
+      data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 160 &&
+      data.subtitleBn is string && data.subtitleBn.size() >= 1 && data.subtitleBn.size() <= 300 &&
+      data.subtitleEn is string && data.subtitleEn.size() >= 1 && data.subtitleEn.size() <= 300 &&
+      data.btnTextBn is string && data.btnTextBn.size() >= 1 && data.btnTextBn.size() <= 60 &&
+      data.btnTextEn is string && data.btnTextEn.size() >= 1 && data.btnTextEn.size() <= 60 &&
+      data.btnLink is string && data.btnLink.size() >= 1 && data.btnLink.size() <= 200 &&
+      data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 250000 &&
+      data.sliderType is string && data.sliderType.size() <= 20 &&
+      data.sliderType in ['hero', 'promo'] &&
+      data.isActive is bool &&
+      data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 1000 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: BlogPost
+    function isValidBlogPost(data) {
+      return data.keys().hasAll([
+        'titleBn', 'titleEn', 'categoryBn', 'excerptBn', 'contentBn',
+        'imageUrl', 'authorName', 'isPublished', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'titleBn', 'titleEn', 'categoryBn', 'excerptBn', 'contentBn',
+        'imageUrl', 'authorName', 'isPublished', 'createdAt', 'updatedAt'
+      ]) &&
+      data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 200 &&
+      data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 200 &&
+      data.categoryBn is string && data.categoryBn.size() >= 1 && data.categoryBn.size() <= 80 &&
+      data.excerptBn is string && data.excerptBn.size() >= 1 && data.excerptBn.size() <= 500 &&
+      data.contentBn is string && data.contentBn.size() >= 1 && data.contentBn.size() <= 8000 &&
+      data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 250000 &&
+      data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80 &&
+      data.isPublished is bool &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: LandingPage
+    function isValidLandingPage(data) {
+      return data.keys().hasAll([
+        'slug', 'titleBn', 'subtitleBn', 'productId', 'heroImageUrl',
+        'bulletPointsSummary', 'specialOfferText', 'isActive', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'slug', 'titleBn', 'subtitleBn', 'productId', 'heroImageUrl',
+        'bulletPointsSummary', 'specialOfferText', 'isActive', 'createdAt', 'updatedAt'
+      ]) &&
+      data.slug is string && data.slug.size() >= 2 && data.slug.size() <= 80 &&
+      data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 200 &&
+      data.subtitleBn is string && data.subtitleBn.size() >= 1 && data.subtitleBn.size() <= 400 &&
+      data.productId is string && data.productId.size() >= 1 && data.productId.size() <= 80 &&
+      data.heroImageUrl is string && data.heroImageUrl.size() >= 1 && data.heroImageUrl.size() <= 250000 &&
+      data.bulletPointsSummary is string && data.bulletPointsSummary.size() >= 1 && data.bulletPointsSummary.size() <= 1500 &&
+      data.specialOfferText is string && data.specialOfferText.size() >= 1 && data.specialOfferText.size() <= 200 &&
+      data.isActive is bool &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Review
+    function isValidReview(data) {
+      return data.keys().hasAll([
+        'productId', 'productName', 'customerName', 'rating',
+        'comment', 'status', 'adminReply', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'productId', 'productName', 'customerName', 'rating',
+        'comment', 'status', 'adminReply', 'createdAt', 'updatedAt'
+      ]) &&
+      data.productId is string && data.productId.size() >= 1 && data.productId.size() <= 80 &&
+      data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 160 &&
+      data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 80 &&
+      data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+      data.comment is string && data.comment.size() >= 2 && data.comment.size() <= 1000 &&
+      data.status is string && data.status.size() <= 20 &&
+      data.status in ['Approved', 'Pending'] &&
+      data.adminReply is string && data.adminReply.size() >= 1 && data.adminReply.size() <= 500 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: SiteSettings
+    function isValidSiteSettings(data) {
+      return data.keys().hasAll([
+        'siteName', 'supportPhone', 'supportEmail', 'whatsappNumber',
+        'insideDhakaCharge', 'outsideDhakaCharge', 'freeDeliveryThreshold',
+        'flashSaleTitleBn', 'flashSaleEndTime', 'flashSaleActive',
+        'bkashNumber', 'nagadNumber', 'rocketNumber', 'upayNumber', 'bankDetails',
+        'steadfastApiKey', 'steadfastSecretKey',
+        'fbPixelId', 'tiktokPixelId', 'gaMeasurementId', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'siteName', 'logoUrl', 'siteTagline', 'supportPhone', 'supportEmail', 'whatsappNumber',
+        'insideDhakaCharge', 'outsideDhakaCharge', 'freeDeliveryThreshold',
+        'flashSaleTitleBn', 'flashSaleEndTime', 'flashSaleActive',
+        'bkashNumber', 'nagadNumber', 'rocketNumber', 'upayNumber', 'bankDetails',
+        'steadfastApiKey', 'steadfastSecretKey',
+        'fbPixelId', 'tiktokPixelId', 'gaMeasurementId', 'updatedAt'
+      ]) &&
+      data.siteName is string && data.siteName.size() >= 1 && data.siteName.size() <= 100 &&
+      (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() <= 250000)) &&
+      (!('siteTagline' in data) || (data.siteTagline is string && data.siteTagline.size() <= 160)) &&
+      data.supportPhone is string && data.supportPhone.size() >= 1 && data.supportPhone.size() <= 40 &&
+      data.supportEmail is string && data.supportEmail.size() >= 1 && data.supportEmail.size() <= 100 &&
+      data.whatsappNumber is string && data.whatsappNumber.size() >= 1 && data.whatsappNumber.size() <= 30 &&
+      data.insideDhakaCharge is number && data.insideDhakaCharge >= 0 && data.insideDhakaCharge <= 2000 &&
+      data.outsideDhakaCharge is number && data.outsideDhakaCharge >= 0 && data.outsideDhakaCharge <= 2000 &&
+      data.freeDeliveryThreshold is number && data.freeDeliveryThreshold >= 0 && data.freeDeliveryThreshold <= 1000000 &&
+      data.flashSaleTitleBn is string && data.flashSaleTitleBn.size() >= 1 && data.flashSaleTitleBn.size() <= 160 &&
+      data.flashSaleEndTime is string && data.flashSaleEndTime.size() >= 1 && data.flashSaleEndTime.size() <= 60 &&
+      data.flashSaleActive is bool &&
+      data.bkashNumber is string && data.bkashNumber.size() >= 1 && data.bkashNumber.size() <= 30 &&
+      data.nagadNumber is string && data.nagadNumber.size() >= 1 && data.nagadNumber.size() <= 30 &&
+      data.rocketNumber is string && data.rocketNumber.size() >= 1 && data.rocketNumber.size() <= 30 &&
+      data.upayNumber is string && data.upayNumber.size() >= 1 && data.upayNumber.size() <= 30 &&
+      data.bankDetails is string && data.bankDetails.size() >= 1 && data.bankDetails.size() <= 500 &&
+      data.steadfastApiKey is string && data.steadfastApiKey.size() >= 1 && data.steadfastApiKey.size() <= 120 &&
+      data.steadfastSecretKey is string && data.steadfastSecretKey.size() >= 1 && data.steadfastSecretKey.size() <= 120 &&
+      data.fbPixelId is string && data.fbPixelId.size() >= 1 && data.fbPixelId.size() <= 80 &&
+      data.tiktokPixelId is string && data.tiktokPixelId.size() >= 1 && data.tiktokPixelId.size() <= 80 &&
+      data.gaMeasurementId is string && data.gaMeasurementId.size() >= 1 && data.gaMeasurementId.size() <= 80 &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: AdminProfile
+    function isValidAdminProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+      data.keys().hasOnly(['uid', 'email', 'createdAt']) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+      data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+      data.createdAt is timestamp;
+    }
+
+    // 1. Products Collection
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+
+      allow create: if isValidId(productId) &&
+        isValidProduct(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+
+      allow update: if isValidId(productId) &&
+        isValidProduct(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'nameBn', 'nameEn', 'descriptionBn', 'descriptionEn',
+            'category', 'price', 'salePrice', 'isFlashSale',
+            'stock', 'unitLabel', 'imageUrl', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(productId) && isAdmin();
+    }
+
+    // 2. Coupons Collection
+    match /coupons/{couponId} {
+      allow get: if isValidId(couponId);
+      allow list: if true;
+
+      allow create: if isValidId(couponId) &&
+        isValidCoupon(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+
+      allow update: if isValidId(couponId) &&
+        isValidCoupon(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'code', 'discountType', 'discountValue', 'minOrderAmount',
+            'descriptionBn', 'descriptionEn', 'isActive', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(couponId) && isAdmin();
+    }
+
+    // 3. Orders Collection (PII Isolated - Only Admin Can Read/List/Update)
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && isAdmin();
+      allow list: if isAdmin();
+
+      allow create: if isValidId(orderId) &&
+        isValidOrder(incoming()) &&
+        incoming().orderCode == orderId &&
+        incoming().status == 'Pending' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        existsAfter(/databases/$(database)/documents/orderTracking/$(orderId));
+
+      allow update: if isValidId(orderId) &&
+        isValidOrder(incoming()) &&
+        incoming().orderCode == existing().orderCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (!(existing().status in ['Delivered', 'Cancelled']) || isAdmin()) &&
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'status', 'paymentStatus', 'transactionId', 'senderPhone',
+            'steadfastConsignmentId', 'steadfastStatus', 'adminNote', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(orderId) && isAdmin();
+    }
+
+    // 4. OrderTracking Collection (PII-Free Public Tracking by Exact Order Code)
+    match /orderTracking/{orderCode} {
+      allow get: if isValidId(orderCode);
+      allow list: if isAdmin();
+
+      allow create: if isValidId(orderCode) &&
+        isValidOrderTracking(incoming()) &&
+        incoming().orderCode == orderCode &&
+        incoming().status == 'Pending' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        existsAfter(/databases/$(database)/documents/orders/$(orderCode));
+
+      allow update: if isValidId(orderCode) &&
+        isValidOrderTracking(incoming()) &&
+        incoming().orderCode == existing().orderCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          (!(existing().status in ['Delivered', 'Cancelled']) || isAdmin()) &&
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'status', 'paymentStatus', 'steadfastConsignmentId', 'steadfastStatus', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(orderCode) && isAdmin();
+    }
+
+    // 5. AbandonedCarts Collection (PII Isolated - Public Create, Admin Read/Update/Delete)
+    match /abandonedCarts/{cartId} {
+      allow get: if isValidId(cartId) && isAdmin();
+      allow list: if isAdmin();
+
+      allow create: if isValidId(cartId) &&
+        isValidAbandonedCart(incoming()) &&
+        incoming().cartCode == cartId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(cartId) &&
+        isValidAbandonedCart(incoming()) &&
+        incoming().cartCode == existing().cartCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['recoveryStatus', 'updatedAt'])
+        );
+
+      allow delete: if isValidId(cartId) && isAdmin();
+    }
+
+    // 6. Sliders Collection
+    match /sliders/{sliderId} {
+      allow get: if isValidId(sliderId);
+      allow list: if true;
+
+      allow create: if isValidId(sliderId) &&
+        isValidSlider(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+
+      allow update: if isValidId(sliderId) &&
+        isValidSlider(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'titleBn', 'titleEn', 'subtitleBn', 'subtitleEn',
+            'btnTextBn', 'btnTextEn', 'btnLink', 'imageUrl',
+            'sliderType', 'isActive', 'sortOrder', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(sliderId) && isAdmin();
+    }
+
+    // 7. BlogPosts Collection
+    match /blogPosts/{postId} {
+      allow get: if isValidId(postId);
+      allow list: if true;
+
+      allow create: if isValidId(postId) &&
+        isValidBlogPost(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+
+      allow update: if isValidId(postId) &&
+        isValidBlogPost(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'titleBn', 'titleEn', 'categoryBn', 'excerptBn', 'contentBn',
+            'imageUrl', 'authorName', 'isPublished', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(postId) && isAdmin();
+    }
+
+    // 8. LandingPages Collection
+    match /landingPages/{pageId} {
+      allow get: if isValidId(pageId);
+      allow list: if true;
+
+      allow create: if isValidId(pageId) &&
+        isValidLandingPage(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+
+      allow update: if isValidId(pageId) &&
+        isValidLandingPage(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'slug', 'titleBn', 'subtitleBn', 'productId', 'heroImageUrl',
+            'bulletPointsSummary', 'specialOfferText', 'isActive', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(pageId) && isAdmin();
+    }
+
+    // 9. Reviews Collection
+    match /reviews/{reviewId} {
+      allow get: if isValidId(reviewId);
+      allow list: if true;
+
+      allow create: if isValidId(reviewId) &&
+        isValidReview(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(reviewId) &&
+        isValidReview(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminReply', 'updatedAt'])
+        );
+
+      allow delete: if isValidId(reviewId) && isAdmin();
+    }
+
+    // 10. SiteSettings Collection
+    match /siteSettings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if true;
+
+      allow create: if isValidId(settingId) &&
+        isValidSiteSettings(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+
+      allow update: if isValidId(settingId) &&
+        isValidSiteSettings(incoming()) &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'siteName', 'logoUrl', 'siteTagline', 'supportPhone', 'supportEmail', 'whatsappNumber',
+            'insideDhakaCharge', 'outsideDhakaCharge', 'freeDeliveryThreshold',
+            'flashSaleTitleBn', 'flashSaleEndTime', 'flashSaleActive',
+            'bkashNumber', 'nagadNumber', 'rocketNumber', 'upayNumber', 'bankDetails',
+            'steadfastApiKey', 'steadfastSecretKey',
+            'fbPixelId', 'tiktokPixelId', 'gaMeasurementId', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(settingId) && isAdmin();
+    }
+
+    // 11. Admins Collection
+    match /admins/{adminUid} {
+      allow get: if isValidId(adminUid) && (
+        (isVerifiedUser() && request.auth.uid == adminUid) || isAdmin()
+      );
+      allow list: if isAdmin();
+
+      allow create: if isValidId(adminUid) &&
+        isValidAdminProfile(incoming()) &&
+        incoming().uid == adminUid &&
+        incoming().createdAt == request.time &&
+        isAdmin();
+
+      allow update: if false;
+      allow delete: if isValidId(adminUid) && isAdmin();
+    }
+  }
+}
